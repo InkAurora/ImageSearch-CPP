@@ -3,7 +3,7 @@
 int main() {
 	string imagePath;
 	int x = 0, y = 0;
-	int left, top, right, bottom;
+	int left, top, right, bottom, tolerance;
 
 	cout << "Insert image path: ";
 	cin >> imagePath;
@@ -21,8 +21,10 @@ int main() {
 	if (bottom == 0) {
 		bottom = GetSystemMetrics(SM_CYSCREEN);
 	}
+	cout << "Insert tolerance: ";
+	cin >> tolerance;
 
-	int success = ImageSearch(x, y, left, top, right, bottom, 0, imagePath);
+	int success = ImageSearch(x, y, left, top, right, bottom, tolerance, imagePath);
 
 	cout << success << " " << x << " " << y << endl;
 	cin >> left;

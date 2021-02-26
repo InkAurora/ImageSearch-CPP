@@ -146,9 +146,9 @@ int CompareImage(BMP bmp, BMP_IMAGE bmpImage, int x, int y) {
 			if (x + j > _right) return 0;
 			if (y + i > _bottom) return 0;
 
-			if (screen[sHeight + ((x + j) * bmp.bitAlloc) + 0] != image[height + (j * bmpImage.bitAlloc) + 0]) return 0;
-			if (screen[sHeight + ((x + j) * bmp.bitAlloc) + 1] != image[height + (j * bmpImage.bitAlloc) + 1]) return 0;
-			if (screen[sHeight + ((x + j) * bmp.bitAlloc) + 2] != image[height + (j * bmpImage.bitAlloc) + 2]) return 0;
+			if (abs(screen[sHeight + ((x + j) * bmp.bitAlloc) + 0] - image[height + (j * bmpImage.bitAlloc) + 0]) > tolerance) return 0;
+			if (abs(screen[sHeight + ((x + j) * bmp.bitAlloc) + 1] - image[height + (j * bmpImage.bitAlloc) + 1]) > tolerance) return 0;
+			if (abs(screen[sHeight + ((x + j) * bmp.bitAlloc) + 2] - image[height + (j * bmpImage.bitAlloc) + 2]) > tolerance) return 0;
 		}
 	}
 
@@ -164,9 +164,9 @@ int FindPixelMatch(BMP bmp, BMP_IMAGE bmpImage) {
 	for (int i = _top; i <= _bottom; i++) {
 		sHeight = i * bmp.MAX_WIDTH * bmp.bitAlloc;
 		for (int j = _left; j <= _right; j++) {
-			if (image[0] != screen[sHeight + (j * bmp.bitAlloc) + 0]) continue;
-			if (image[1] != screen[sHeight + (j * bmp.bitAlloc) + 1]) continue;
-			if (image[2] == screen[sHeight + (j * bmp.bitAlloc) + 2]) {
+			if (abs(image[0] - screen[sHeight + (j * bmp.bitAlloc) + 0]) > tolerance) continue;
+			if (abs(image[1] - screen[sHeight + (j * bmp.bitAlloc) + 1]) > tolerance) continue;
+			if (abs(image[2] - screen[sHeight + (j * bmp.bitAlloc) + 2]) <= tolerance) {
 				if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j * bmp.bitAlloc;
 			}
 		}
