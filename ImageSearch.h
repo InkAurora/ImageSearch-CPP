@@ -9,6 +9,9 @@ using namespace std;
 
 string ErrLvl = "";
 
+int tolerance = 0;
+int _left, _right, _top, _bottom;
+
 typedef struct PDATA {
 	int b;
 	int g;
@@ -140,6 +143,9 @@ int CompareImage(BMP bmp, BMP_IMAGE bmpImage, int x, int y) {
 		height = i * bmpImage.MAX_WIDTH * bmpImage.bitAlloc;
 		sHeight = (y + i) * bmp.MAX_WIDTH * bmp.bitAlloc;
 		for (int j = 0; j < bmpImage.MAX_WIDTH; j++) {
+			if (x + j > _right) return 0;
+			if (y + i > _bottom) return 0;
+
 			if (screen[sHeight + ((x + j) * bmp.bitAlloc) + 0] != image[height + (j * bmpImage.bitAlloc) + 0]) return 0;
 			if (screen[sHeight + ((x + j) * bmp.bitAlloc) + 1] != image[height + (j * bmpImage.bitAlloc) + 1]) return 0;
 			if (screen[sHeight + ((x + j) * bmp.bitAlloc) + 2] != image[height + (j * bmpImage.bitAlloc) + 2]) return 0;
@@ -152,15 +158,18 @@ int CompareImage(BMP bmp, BMP_IMAGE bmpImage, int x, int y) {
 int FindPixelMatch(BMP bmp, BMP_IMAGE bmpImage) {
 	BYTE* screen = bmp.bitPointer;
 	BYTE* image = bmpImage.bitPointer;
-	for (int i = 0; i < bmp.mapSize; i += bmp.bitAlloc) {
-		if (image[0] != screen[i + 0]) continue;
-		if (image[1] != screen[i + 1]) continue;
-		if (image[2] == screen[i + 2]) {
-			int found = CompareImage(bmp, bmpImage, i / bmp.bitAlloc % bmp.MAX_WIDTH, floor(i / bmp.bitAlloc / bmp.MAX_WIDTH));
-			if (found) {
-				return i;
+	if (_right == GetSystemMetrics(SM_CXSCREEN)) _right -= 1;
+	if (_bottom == GetSystemMetrics(SM_CYSCREEN)) _bottom -= 1;
+	int sHeight;
+	for (int i = _top; i <= _bottom; i++) {
+		sHeight = i * bmp.MAX_WIDTH * bmp.bitAlloc;
+		for (int j = _left; j <= _right; j++) {
+			if (image[0] != screen[sHeight + (j * bmp.bitAlloc) + 0]) continue;
+			if (image[1] != screen[sHeight + (j * bmp.bitAlloc) + 1]) continue;
+			if (image[2] == screen[sHeight + (j * bmp.bitAlloc) + 2]) {
+				if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j * bmp.bitAlloc;
 			}
-		};
+		}
 	}
 
 	return 0;
@@ -180,6 +189,11 @@ int Test(BMP bmp, BMP_IMAGE bmpImage, int &x, int &y) {
 
 int ImageSearch(int &x, int &y, int left, int top, int right, int bottom, int tol, string imgPath = "") {
 	if (imgPath != "") {
+		tolerance = tol;
+		_left = left;
+		_right = right;
+		_top = top;
+		_bottom = bottom;
 		BMP screen;
 		BMP_IMAGE image;
 		screen.doMagic();

@@ -2,12 +2,11 @@
 
 int main() {
 	string imagePath;
-	int x, y;
+	int x = 0, y = 0;
 	int left, top, right, bottom;
 
 	cout << "Insert image path: ";
-	//cin >> imagePath;
-	imagePath = "C:/Users/marth/Desktop/asd.bmp";
+	cin >> imagePath;
 	cout << "Insert left: ";
 	cin >> left;
 	cout << "Insert top: ";
