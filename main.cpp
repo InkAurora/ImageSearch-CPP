@@ -3,7 +3,7 @@
 int main() {
 	string imagePath;
 	int x = 0, y = 0;
-	int left, top, right, bottom, tolerance;
+	int left, top, right, bottom, tolerance, ignore;
 
 	cout << "Insert image path: ";
 	cin >> imagePath;
@@ -23,8 +23,10 @@ int main() {
 	}
 	cout << "Insert tolerance: ";
 	cin >> tolerance;
+	cout << "Insert hex color code to ignore: ";
+	cin >> hex >> ignore;
 
-	int success = ImageSearch(x, y, left, top, right, bottom, tolerance, imagePath);
+	int success = ImageSearch(x, y, left, top, right, bottom, tolerance, imagePath, ignore);
 
 	cout << success << " " << x << " " << y << endl;
 	cin >> left;

@@ -11,6 +11,8 @@ string ErrLvl = "";
 
 int tolerance = 0;
 int _left, _right, _top, _bottom;
+int iR = 205;
+int iG, iB;
 
 typedef struct PDATA {
 	int b;
@@ -146,9 +148,18 @@ int CompareImage(BMP bmp, BMP_IMAGE bmpImage, int x, int y) {
 			if (x + j > _right) return 0;
 			if (y + i > _bottom) return 0;
 
-			if (abs(screen[sHeight + ((x + j) * bmp.bitAlloc) + 0] - image[height + (j * bmpImage.bitAlloc) + 0]) > tolerance) return 0;
-			if (abs(screen[sHeight + ((x + j) * bmp.bitAlloc) + 1] - image[height + (j * bmpImage.bitAlloc) + 1]) > tolerance) return 0;
-			if (abs(screen[sHeight + ((x + j) * bmp.bitAlloc) + 2] - image[height + (j * bmpImage.bitAlloc) + 2]) > tolerance) return 0;
+			int sPos = sHeight + ((x + j) * bmp.bitAlloc);
+			int pos = height + (j * bmpImage.bitAlloc);
+
+			if (iR != 205) {
+				if (image[pos + 0] == iB and
+					image[pos + 1] == iG and
+					image[pos + 2] == iR) continue;
+			}
+
+			if (abs(screen[sPos + 0] - image[pos + 0]) > tolerance) return 0;
+			if (abs(screen[sPos + 1] - image[pos + 1]) > tolerance) return 0;
+			if (abs(screen[sPos + 2] - image[pos + 2]) > tolerance) return 0;
 		}
 	}
 
@@ -187,7 +198,7 @@ int Test(BMP bmp, BMP_IMAGE bmpImage, int &x, int &y) {
 	return 0;
 }
 
-int ImageSearch(int &x, int &y, int left, int top, int right, int bottom, int tol, string imgPath = "") {
+int ImageSearch(int &x, int &y, int left, int top, int right, int bottom, int tol, string imgPath = "", int ignoreColor = 0) {
 	if (imgPath != "") {
 		tolerance = tol;
 		_left = left;
@@ -198,6 +209,12 @@ int ImageSearch(int &x, int &y, int left, int top, int right, int bottom, int to
 		BMP_IMAGE image;
 		screen.doMagic();
 		image.createBMP(LoadPicture(imgPath));
+	
+		if (ignoreColor != 0) {
+			iR = (ignoreColor >> 16) & 0xff;
+			iG = (ignoreColor >> 8) & 0xff;
+			iB = ignoreColor & 0xff;
+		}
 
 		int success = Test(screen, image, x, y);
 
