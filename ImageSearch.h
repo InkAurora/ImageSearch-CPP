@@ -14,12 +14,6 @@ int _left, _right, _top, _bottom;
 int iR = 205;
 int iG, iB;
 
-typedef struct PDATA {
-	int b;
-	int g;
-	int r;
-} PDATA;
-
 typedef struct BMP {
 
 	HDC hdc, hdcTemp;
