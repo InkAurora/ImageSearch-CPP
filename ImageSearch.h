@@ -17,10 +17,11 @@ int iG, iB;
 typedef struct BMP {
 
 	HDC hdc, hdcTemp;
-	BYTE *bitPointer;
+	BYTE* bitPointer;
 	int MAX_WIDTH, MAX_HEIGHT, mapSize, bitAlloc;
 	BITMAPINFO bitmap;
 	HBITMAP hBitmap2;
+	int* pixelMap;
 
 	void doMagic() {
 		hdc = GetDC(NULL);
@@ -45,6 +46,14 @@ typedef struct BMP {
 		DeleteObject(hBitmap2);
 
 		BitBlt(hdcTemp, 0, 0, MAX_WIDTH, MAX_HEIGHT, hdc, 0, 0, SRCCOPY);
+
+		pixelMap = new int[mapSize / bitAlloc];
+
+		for (int i = 0; i < mapSize; i += bitAlloc) {
+			pixelMap[i / bitAlloc] = int(bitPointer[i + 0] & 0xff |
+				bitPointer[i + 1] & 0xff00 |
+				bitPointer[i + 2] & 0xff0000);
+		}
 
 		return;
 	}
@@ -157,6 +166,8 @@ int CompareImage(BMP bmp, BMP_IMAGE bmpImage, int x, int y) {
 		}
 	}
 
+	cout << "a" << endl;
+
 	return 1;
 }
 
@@ -172,7 +183,8 @@ int FindPixelMatch(BMP bmp, BMP_IMAGE bmpImage) {
 			if (abs(image[0] - screen[sHeight + (j * bmp.bitAlloc) + 0]) > tolerance) continue;
 			if (abs(image[1] - screen[sHeight + (j * bmp.bitAlloc) + 1]) > tolerance) continue;
 			if (abs(image[2] - screen[sHeight + (j * bmp.bitAlloc) + 2]) <= tolerance) {
-				if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j * bmp.bitAlloc;
+				int a = CompareImage(bmp, bmpImage, j, i);
+				if (a) return sHeight + j * bmp.bitAlloc;
 			}
 		}
 	}
