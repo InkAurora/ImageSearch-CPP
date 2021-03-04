@@ -18,8 +18,8 @@ int ImageSearch(
   int top,
   int right,
   int bottom,
-  int tol,
   string imgPath,
+  int tol,
   int ignoreColor
 );
 ```
@@ -31,8 +31,8 @@ int ImageSearch(
 - `top` The top y coordinate of the area of the search.
 - `right` The right x coordinate of the area of the search.
 - `bottom` The bottom y coordinate of the area of the search.
-- `tol` An integer tolerance value varying from `0` to `255`, the higher the value the higher the color tolerance when searching the image.
 - `imgPath` An string with the path of the image to be used in the search. e.g. `C:/someFolder/foo.bmp`.
+- `tol` An integer tolerance value varying from `0` to `255`, the higher the value the higher the color tolerance when searching the image.
 - `ignoreColor` An integer hex RGB color code to ignore. The pixels of the chosen color will match any pixel during the search. Useful for 'adding transparency'. e.g. The code `0xff0000` will make the search ignore every **RED(255, 0, 0)** pixel on the image. 
 
 ### Return Values
