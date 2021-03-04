@@ -9,10 +9,9 @@ using namespace std;
 
 string ErrLvl = "";
 
-int tolerance = 0;
+int _tol = 0;
 int _left, _right, _top, _bottom;
-int iR = 205;
-int iG, iB;
+int _ignoreColor = 0xcccccccc;
 
 typedef struct BMP {
 
@@ -23,7 +22,7 @@ typedef struct BMP {
 	HBITMAP hBitmap2;
 	int* pixelMap;
 
-	void doMagic() {
+	void createBMP() {
 		hdc = GetDC(NULL);
 		MAX_WIDTH = GetSystemMetrics(SM_CXSCREEN);
 		MAX_HEIGHT = GetSystemMetrics(SM_CYSCREEN);
@@ -47,28 +46,32 @@ typedef struct BMP {
 
 		BitBlt(hdcTemp, 0, 0, MAX_WIDTH, MAX_HEIGHT, hdc, 0, 0, SRCCOPY);
 
-		pixelMap = new int[mapSize / bitAlloc];
-
-		for (int i = 0; i < mapSize; i += bitAlloc) {
-			pixelMap[i / bitAlloc] = int(bitPointer[i + 0] & 0xff |
-				bitPointer[i + 1] & 0xff00 |
-				bitPointer[i + 2] & 0xff0000);
-		}
+		convertMap();
 
 		return;
 	}
 
-	void undoMagic() {
+	void deleteBMP() {
 		DeleteObject(hdcTemp);
 		ReleaseDC(NULL, hdcTemp);
 		DeleteObject(hdc);
 		ReleaseDC(NULL, hdc);
-		DeleteObject(bitPointer);
+		//delete[] bitPointer;
+		delete[] pixelMap;
 		return;
 	}
 
-	void refreshMagic() {
-		BitBlt(hdcTemp, 0, 0, MAX_WIDTH, MAX_HEIGHT, hdc, 0, 0, SRCCOPY);
+	void convertMap() {
+		pixelMap = new int[mapSize / bitAlloc];
+		int buffer;
+
+		for (int i = 0; i < mapSize; i += bitAlloc) {
+			buffer = int(bitPointer[i + 2] << 16 & 0xff0000);
+			buffer += int(bitPointer[i + 1] << 8 & 0xff00);
+			buffer += int(bitPointer[i + 0] & 0xff);
+			pixelMap[i / bitAlloc] = buffer;
+		}
+		
 		return;
 	}
 
@@ -81,6 +84,7 @@ typedef struct BMP_IMAGE {
 	HBITMAP hBMP;
 	BITMAPINFOHEADER bmInfoHeader;
 	unsigned char* bitPointer;
+	int* pixelMap;
 	
 	int createBMP(HBITMAP bmp) {
 		hBMP = bmp;
@@ -109,12 +113,29 @@ typedef struct BMP_IMAGE {
 			return 0;
 		}
 
+		convertMap();
+
 		return 1;
+	}
+
+	void convertMap() {
+		pixelMap = new int[mapSize / bitAlloc];
+		int buffer;
+
+		for (int i = 0; i < mapSize; i += bitAlloc) {
+			buffer = int(bitPointer[i + 2] << 16 & 0xff0000);
+			buffer += int(bitPointer[i + 1] << 8 & 0xff00);
+			buffer += int(bitPointer[i + 0] & 0xff);
+			pixelMap[i / bitAlloc] = buffer;
+		}
+
+		return;
 	}
 
 	void deleteBMP() {
 		DeleteObject(hBMP);
-		delete [] bitPointer;
+		delete[] bitPointer;
+		delete[] pixelMap;
 
 		return;
 	}
@@ -141,90 +162,91 @@ HBITMAP LoadPicture(string img) {
 }
 
 int CompareImage(BMP bmp, BMP_IMAGE bmpImage, int x, int y) {
-	BYTE* screen = bmp.bitPointer;
-	BYTE* image = bmpImage.bitPointer;
-	int height, sHeight, width, sWidth;
-	for (int i = 0; i < bmpImage.MAX_HEIGHT; i++) {
-		height = i * bmpImage.MAX_WIDTH * bmpImage.bitAlloc;
-		sHeight = (y + i) * bmp.MAX_WIDTH * bmp.bitAlloc;
-		for (int j = 0; j < bmpImage.MAX_WIDTH; j++) {
+	int* screen = bmp.pixelMap;
+	int* image = bmpImage.pixelMap;
+	int height, sHeight;
+	for (int i = bmpImage.MAX_HEIGHT - 1; i >= 0; i--) {
+		height = i * bmpImage.MAX_WIDTH;
+		sHeight = (y + i) * bmp.MAX_WIDTH;
+		for (int j = bmpImage.MAX_WIDTH - 1; j >= 0; j--) {
 			if (x + j > _right) return 0;
 			if (y + i > _bottom) return 0;
 
-			int sPos = sHeight + ((x + j) * bmp.bitAlloc);
-			int pos = height + (j * bmpImage.bitAlloc);
+			if (image[height + j] == _ignoreColor) continue;
 
-			if (iR != 205) {
-				if (image[pos + 0] == iB and
-					image[pos + 1] == iG and
-					image[pos + 2] == iR) continue;
+			if (_tol == 0) {
+				if (image[height + j] != screen[sHeight + x + j]) return 0;
+			} else {
+				if (abs((image[height + j] >> 16) - (screen[sHeight + x + j] >> 16)) > _tol or
+					abs((image[height + j] >> 8 & 0xff) - (screen[sHeight + x + j] >> 8 & 0xff)) > _tol or
+					abs((image[height + j] & 0xff) - (screen[sHeight + x + j] & 0xff)) > _tol) return 0;
 			}
-
-			if (abs(screen[sPos + 0] - image[pos + 0]) > tolerance) return 0;
-			if (abs(screen[sPos + 1] - image[pos + 1]) > tolerance) return 0;
-			if (abs(screen[sPos + 2] - image[pos + 2]) > tolerance) return 0;
 		}
 	}
-
-	cout << "a" << endl;
 
 	return 1;
 }
 
 int FindPixelMatch(BMP bmp, BMP_IMAGE bmpImage) {
-	BYTE* screen = bmp.bitPointer;
-	BYTE* image = bmpImage.bitPointer;
+	int* screen = bmp.pixelMap;
+	int* image = bmpImage.pixelMap;
 	if (_right == GetSystemMetrics(SM_CXSCREEN)) _right -= 1;
 	if (_bottom == GetSystemMetrics(SM_CYSCREEN)) _bottom -= 1;
 	int sHeight;
+	int scanTrans = 0;
+	if (image[0] == _ignoreColor) scanTrans = 1;
 	for (int i = _top; i <= _bottom; i++) {
-		sHeight = i * bmp.MAX_WIDTH * bmp.bitAlloc;
+		sHeight = i * bmp.MAX_WIDTH;
 		for (int j = _left; j <= _right; j++) {
-			if (abs(image[0] - screen[sHeight + (j * bmp.bitAlloc) + 0]) > tolerance) continue;
-			if (abs(image[1] - screen[sHeight + (j * bmp.bitAlloc) + 1]) > tolerance) continue;
-			if (abs(image[2] - screen[sHeight + (j * bmp.bitAlloc) + 2]) <= tolerance) {
-				int a = CompareImage(bmp, bmpImage, j, i);
-				if (a) return sHeight + j * bmp.bitAlloc;
+			if (scanTrans) {
+				if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j;
+			}
+			if (_tol == 0) {
+				if (image[0] == screen[sHeight + j]) {
+					if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j;
+				}
+			} else {
+				if (abs((image[0] >> 16) - (screen[sHeight + j] >> 16)) <= _tol and
+					abs((image[0] >> 8 & 0xff) - (screen[sHeight + j] >> 8 & 0xff)) <= _tol and
+					abs((image[0] & 0xff) - (screen[sHeight + j] & 0xff)) <= _tol) {
+					if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j;
+				}
 			}
 		}
 	}
 
-	return 0;
+	return -1;
 }
 
-int Test(BMP bmp, BMP_IMAGE bmpImage, int &x, int &y) {
+int FindImage(BMP bmp, BMP_IMAGE bmpImage, int &x, int &y) {
 	int position = FindPixelMatch(bmp, bmpImage);
 
-	if (position > 0) {
-		x = position / bmp.bitAlloc % bmp.MAX_WIDTH;
-		y = position / bmp.bitAlloc / bmp.MAX_WIDTH;
+	if (position > -1) {
+		x = position % bmp.MAX_WIDTH;
+		y = position / bmp.MAX_WIDTH;
 		return 1;
 	}
 
 	return 0;
 }
 
-int ImageSearch(int &x, int &y, int left, int top, int right, int bottom, int tol, string imgPath = "", int ignoreColor = 0) {
+int ImageSearch(int &x, int &y, int left, int top, int right, int bottom, string imgPath = "", int tol = 0, int ignoreColor = 0xcccccccc) {
 	if (imgPath != "") {
-		tolerance = tol;
 		_left = left;
 		_right = right;
 		_top = top;
 		_bottom = bottom;
+		_tol = tol;
+		if (_tol < 0) return 0;
+		_ignoreColor = ignoreColor;
 		BMP screen;
 		BMP_IMAGE image;
-		screen.doMagic();
+		screen.createBMP();
 		image.createBMP(LoadPicture(imgPath));
-	
-		if (ignoreColor != 0) {
-			iR = (ignoreColor >> 16) & 0xff;
-			iG = (ignoreColor >> 8) & 0xff;
-			iB = ignoreColor & 0xff;
-		}
 
-		int success = Test(screen, image, x, y);
+		int success = FindImage(screen, image, x, y);
 
-		screen.undoMagic();
+		screen.deleteBMP();
 		image.deleteBMP();
 
 		if (success) return 1;

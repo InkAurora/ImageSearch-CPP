@@ -26,7 +26,7 @@ int main() {
 	cout << "Insert hex color code to ignore: ";
 	cin >> hex >> ignore;
 
-	int success = ImageSearch(x, y, left, top, right, bottom, tolerance, imagePath, ignore);
+	int success = ImageSearch(x, y, left, top, right, bottom, imagePath, tolerance, ignore);
 
 	cout << success << " " << x << " " << y << endl;
 	cin >> left;
