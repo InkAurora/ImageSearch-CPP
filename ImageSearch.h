@@ -16,7 +16,7 @@ int _ignoreColor = 0xcccccccc;
 typedef struct BMP {
 
 	HDC hdc, hdcTemp;
-	BYTE* bitPointer;
+	unsigned char* bitPointer;
 	int MAX_WIDTH, MAX_HEIGHT, mapSize, bitAlloc;
 	BITMAPINFO bitmap;
 	HBITMAP hBitmap2;
@@ -56,8 +56,9 @@ typedef struct BMP {
 		ReleaseDC(NULL, hdcTemp);
 		DeleteObject(hdc);
 		ReleaseDC(NULL, hdc);
-		//delete[] bitPointer;
 		delete[] pixelMap;
+		pixelMap = 0;
+
 		return;
 	}
 
@@ -129,13 +130,16 @@ typedef struct BMP_IMAGE {
 			pixelMap[i / bitAlloc] = buffer;
 		}
 
+		delete[] bitPointer;
+		bitPointer = 0;
+
 		return;
 	}
 
 	void deleteBMP() {
 		DeleteObject(hBMP);
-		delete[] bitPointer;
 		delete[] pixelMap;
+		pixelMap = 0;
 
 		return;
 	}
