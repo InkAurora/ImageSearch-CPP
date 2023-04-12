@@ -91,9 +91,17 @@ int _imgWidth, _imgHeight;
 
 // https://freeimage.sourceforge.io/
 
-bool Load32Bitmap(const char* filename, int*& pixels) {
-  FIBITMAP* dib = FreeImage_Load(FIF_BMP, filename, BMP_DEFAULT);
+bool LoadImageBits(const char* filename, int*& pixels) {
+  FIBITMAP* dib = nullptr;
 
+  FREE_IMAGE_FORMAT format = FreeImage_GetFileType(filename, 0);
+
+  if (format == FIF_UNKNOWN) {
+	format = FreeImage_GetFIFFromFilename(filename);
+	if (format == FIF_UNKNOWN) return false;
+  }
+
+  dib = FreeImage_Load(format, filename, 0);
   if (!dib) return false;
 
   FIBITMAP* bitmap = FreeImage_ConvertTo32Bits(dib);
@@ -237,7 +245,7 @@ int ImageSearch(int& x, int& y, int left, int top, int right, int bottom, string
 	BMP screen = BMP();
 	int* image;
 
-	if (!Load32Bitmap(imgPath.c_str(), image)) {
+	if (!LoadImageBits(imgPath.c_str(), image)) {
 	  screen.DeleteBMP();
 	  delete[] image;
 
