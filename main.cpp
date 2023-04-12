@@ -29,7 +29,7 @@ int main() {
 	int success = ImageSearch(x, y, left, top, right, bottom, imagePath, tolerance, ignore);
 
 	cout << success << " " << x << " " << y << endl;
-	cin >> left;
+	Sleep(10000);
 
 	return 0;
 }

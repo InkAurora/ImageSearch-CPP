@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdlib.h>
-#include <windows.h>
+#include <Windows.h>
+#include "FreeImage.h"
 
 #pragma once
 
@@ -70,7 +71,8 @@ private:
 	pixelMap = new int[MAP_SIZE / BIT_ALLOC];
 
 	for (int i = 0; i < MAP_SIZE; i += BIT_ALLOC) {
-	  buffer = int(bitPointer[i + 2] << 16 & 0xff0000);
+	  buffer = int(bitPointer[i + 3] << 24 & 0xff000000);
+	  buffer += int(bitPointer[i + 2] << 16 & 0xff0000);
 	  buffer += int(bitPointer[i + 1] << 8 & 0xff00);
 	  buffer += int(bitPointer[i + 0] & 0xff);
 	  pixelMap[i / BIT_ALLOC] = buffer;
@@ -85,151 +87,121 @@ private:
   }
 };
 
-class BMP_IMAGE {
-public:
-  HDC hdc;
-  BITMAP bitmap;
-  HBITMAP hBitmap;
-  BITMAPINFOHEADER bitmapInfo;
-  int MAX_WIDTH, MAX_HEIGHT, MAP_SIZE, BIT_ALLOC;
-  int* pixelMap;
-  unsigned char* bitPointer;
+int _imgWidth, _imgHeight;
 
-  BMP_IMAGE(HBITMAP bmp) {
-	if (!bmp) return;
+// https://freeimage.sourceforge.io/
 
-	hBitmap = bmp;
-	GetObject(hBitmap, sizeof(bitmap), &bitmap);
+bool Load32Bitmap(const char* filename, int*& pixels) {
+  FIBITMAP* dib = FreeImage_Load(FIF_BMP, filename, BMP_DEFAULT);
 
-	if (!bitmap.bmWidth) return;
+  if (!dib) return false;
 
-	MAX_WIDTH = bitmap.bmWidth;
-	MAX_HEIGHT = bitmap.bmHeight;
-	BIT_ALLOC = 4;
-	MAP_SIZE = MAX_WIDTH * MAX_HEIGHT * BIT_ALLOC;
+  FIBITMAP* bitmap = FreeImage_ConvertTo32Bits(dib);
+  FreeImage_Unload(dib);
 
-	bitmapInfo.biSize = sizeof(BITMAPINFOHEADER);
-	bitmapInfo.biWidth = MAX_WIDTH;
-	bitmapInfo.biHeight = -MAX_HEIGHT;
-	bitmapInfo.biPlanes = 1;
-	bitmapInfo.biBitCount = BIT_ALLOC * 8;
-	bitmapInfo.biCompression = BI_RGB;
-	bitmapInfo.biSizeImage = MAP_SIZE;
-	bitmapInfo.biClrUsed = 0;
-	bitmapInfo.biClrImportant = 0;
+  if (!bitmap) return false;
 
-	hdc = CreateCompatibleDC(NULL);
+  _imgWidth = FreeImage_GetWidth(bitmap);
+  _imgHeight = FreeImage_GetHeight(bitmap);
+  int pitch = FreeImage_GetPitch(bitmap);
 
-	bitPointer = new unsigned char[MAP_SIZE];
+  // ARGB formatted ints
+  // A = pixels[i] >> 24 & 0xff;
+  // R = pixels[i] >> 16 & 0xff;
+  // G = pixels[i] >> 8 & 0xff;
+  // B = pixels[i] & 0xff;
+  pixels = new int[_imgWidth * _imgHeight];
+  FreeImage_ConvertToRawBits((BYTE*)pixels, bitmap, pitch, 32, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK, TRUE);
 
-	if (!GetDIBits(hdc, hBitmap, 0, MAX_HEIGHT, bitPointer, (BITMAPINFO*)&bitmapInfo, DIB_RGB_COLORS)) return;
+  FreeImage_Unload(bitmap);
 
-	ConvertMap();
-
-	return;
-  }
-
-  void DeleteBMP() {
-	delete[] pixelMap;
-
-	return;
-  }
-
-private:
-  void ConvertMap() {
-	int buffer;
-
-	pixelMap = new int[MAP_SIZE / BIT_ALLOC];
-
-	for (int i = 0; i < MAP_SIZE; i += BIT_ALLOC) {
-	  buffer = int(bitPointer[i + 2] << 16 & 0xff0000);
-	  buffer += int(bitPointer[i + 1] << 8 & 0xff00);
-	  buffer += int(bitPointer[i + 0] & 0xff);
-	  pixelMap[i / BIT_ALLOC] = buffer;
-	}
-
-	DeleteObject(hBitmap);
-	DeleteDC(hdc);
-	delete[] bitPointer;
-
-	return;
-  }
-};
-
-
-
-
-LPTSTR GetWorkingDir() {
-  LPTSTR* buffer = new LPTSTR;
-  GetCurrentDirectory(FILENAME_MAX + 1, *buffer);
-  return *buffer;
+  return true;
 }
 
-HBITMAP LoadPicture(string img) {
-  LPCSTR path = img.c_str();
 
-  HBITMAP bmp = (HBITMAP)LoadImageA(NULL, path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
-  if (!bmp) {
-	ErrLvl = "2: Could not load bitmap.";
-	return 0;
-  }
 
-  return bmp;
-}
-
-int CompareImage(BMP bmp, BMP_IMAGE bmpImage, int x, int y) {
+bool CompareImage(BMP bmp, int* bmpImage, int x, int y) {
   int* screen = bmp.pixelMap;
-  int* image = bmpImage.pixelMap;
-  int height, sHeight;
-  for (int i = bmpImage.MAX_HEIGHT - 1; i >= 0; i--) {
-	height = i * bmpImage.MAX_WIDTH;
+  int height, sHeight, tol;
+
+  for (int i = _imgHeight - 1; i >= 0; i--) {
+	height = i * _imgWidth;
 	sHeight = (y + i) * bmp.MAX_WIDTH;
-	for (int j = bmpImage.MAX_WIDTH - 1; j >= 0; j--) {
-	  if (x + j > _right) return 0;
-	  if (y + i > _bottom) return 0;
 
-	  if (image[height + j] == _ignoreColor) continue;
+	for (int j = _imgWidth - 1; j >= 0; j--) {
+	  tol = 0xff + _tol - (bmpImage[height + j] >> 24 & 0xff);
+	  if (tol >= 0xff) continue;
 
-	  if (_tol == 0) {
-		if (image[height + j] != screen[sHeight + x + j]) return 0;
-	  }
-	  else {
-		if (abs((image[height + j] >> 16) - (screen[sHeight + x + j] >> 16)) > _tol or
-		  abs((image[height + j] >> 8 & 0xff) - (screen[sHeight + x + j] >> 8 & 0xff)) > _tol or
-		  abs((image[height + j] & 0xff) - (screen[sHeight + x + j] & 0xff)) > _tol) return 0;
-	  }
-	}
-  }
+	  if (x + j > _right) return false;
+	  if (y + i > _bottom) return false;
 
-  return 1;
-}
+	  if ((bmpImage[height + j] & 0xffffff) == _ignoreColor and (bmpImage[height + j] >> 24 & 0xff) == 0xff) continue;
 
-int FindPixelMatch(BMP bmp, BMP_IMAGE bmpImage) {
-  int* screen = bmp.pixelMap;
-  int* image = bmpImage.pixelMap;
-
-  if (_right == GetSystemMetrics(SM_CXSCREEN)) _right -= 1;
-  if (_bottom == GetSystemMetrics(SM_CYSCREEN)) _bottom -= 1;
-  int sHeight;
-  int scanTrans = 0;
-  if (image[0] == _ignoreColor) scanTrans = 1;
-  for (int i = _top; i <= _bottom; i++) {
-	sHeight = i * bmp.MAX_WIDTH;
-	for (int j = _left; j <= _right; j++) {
-	  if (scanTrans) {
-		if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j;
-	  }
-	  if (_tol == 0) {
-		if (image[0] == screen[sHeight + j]) {
-		  if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j;
+	  if (tol == 0) {
+		if (bmpImage[height + j] != screen[sHeight + x + j]) {
+		  return false;
 		}
 	  }
 	  else {
-		if (abs((image[0] >> 16) - (screen[sHeight + j] >> 16)) <= _tol and
-		  abs((image[0] >> 8 & 0xff) - (screen[sHeight + j] >> 8 & 0xff)) <= _tol and
-		  abs((image[0] & 0xff) - (screen[sHeight + j] & 0xff)) <= _tol) {
-		  if (CompareImage(bmp, bmpImage, j, i)) return sHeight + j;
+		if (abs((bmpImage[height + j] >> 16 & 0xff) - (screen[sHeight + x + j] >> 16 & 0xff)) > tol or
+		  abs((bmpImage[height + j] >> 8 & 0xff) - (screen[sHeight + x + j] >> 8 & 0xff)) > tol or
+		  abs((bmpImage[height + j] & 0xff) - (screen[sHeight + x + j] & 0xff)) > tol) {
+		  return false;
+		}
+	  }
+	}
+  }
+
+  return true;
+}
+
+int FindPixelMatch(BMP bmp, int* bmpImage) {
+  int* screen = bmp.pixelMap;
+  int scanTrans = 0;
+  int nonTransBitPos = 0;
+  int sHeight;
+  int tol = _tol;
+
+  if (_right == GetSystemMetrics(SM_CXSCREEN)) _right -= 1;
+  if (_bottom == GetSystemMetrics(SM_CYSCREEN)) _bottom -= 1;
+
+  bool done = 0;
+
+  for (int i = 0; i < _imgHeight; i++) {
+	nonTransBitPos = i * _imgWidth;
+
+	for (int j = 0; j < _imgWidth; j++) {
+	  if ((bmpImage[nonTransBitPos + j] & 0xffffff) == _ignoreColor) continue;
+	  if ((bmpImage[nonTransBitPos + j] >> 24 & 0xff) > 0x00) {
+		nonTransBitPos += j;
+		done = true;
+		break;
+	  }
+	}
+	if (done) break;
+  }
+
+  tol += 0xff - (bmpImage[nonTransBitPos] >> 24 & 0xff);
+
+  for (int i = _top; i <= _bottom; i++) {
+	sHeight = i * bmp.MAX_WIDTH;
+
+	for (int j = _left; j <= _right; j++) {
+	  if (tol == 0) {
+		if (bmpImage[nonTransBitPos] == screen[sHeight + j]) {
+		  if (CompareImage(bmp, bmpImage, j - (nonTransBitPos % _imgWidth), i - (nonTransBitPos / _imgWidth))) {
+			return (sHeight - ((nonTransBitPos / _imgWidth) * bmp.MAX_WIDTH)) + (j - (nonTransBitPos % _imgWidth));
+		  }
+		}
+	  }
+	  else {
+		if (abs((bmpImage[nonTransBitPos] >> 16 & 0xff) - (screen[sHeight + j] >> 16 & 0xff)) <= tol and
+		  abs((bmpImage[nonTransBitPos] >> 8 & 0xff) - (screen[sHeight + j] >> 8 & 0xff)) <= tol and
+		  abs((bmpImage[nonTransBitPos] & 0xff) - (screen[sHeight + j] & 0xff)) <= tol) {
+		  if (CompareImage(bmp, bmpImage, j - (nonTransBitPos % _imgWidth), i - (nonTransBitPos / _imgWidth))) {
+			return (sHeight - ((nonTransBitPos / _imgWidth) * bmp.MAX_WIDTH)) + (j - (nonTransBitPos % _imgWidth));
+		  }
 		}
 	  }
 	}
@@ -238,16 +210,17 @@ int FindPixelMatch(BMP bmp, BMP_IMAGE bmpImage) {
   return -1;
 }
 
-int FindImage(BMP bmp, BMP_IMAGE bmpImage, int& x, int& y) {
+bool FindImage(BMP bmp, int* bmpImage, int& x, int& y) {
   int position = FindPixelMatch(bmp, bmpImage);
 
   if (position > -1) {
 	x = position % bmp.MAX_WIDTH;
 	y = position / bmp.MAX_WIDTH;
-	return 1;
+
+	return true;
   }
 
-  return position;
+  return false;
 }
 
 int ImageSearch(int& x, int& y, int left, int top, int right, int bottom, string imgPath = "", int tol = 0, int ignoreColor = 0xcccccccc) {
@@ -262,16 +235,21 @@ int ImageSearch(int& x, int& y, int left, int top, int right, int bottom, string
 	if (_tol < 0) return 0;
 
 	BMP screen = BMP();
+	int* image;
 
-	BMP_IMAGE image = BMP_IMAGE(LoadPicture(imgPath));
+	if (!Load32Bitmap(imgPath.c_str(), image)) {
+	  screen.DeleteBMP();
+	  delete[] image;
 
-	int success = FindImage(screen, image, x, y);
+	  return 2;
+	}
+
+	bool result = FindImage(screen, image, x, y);
 
 	screen.DeleteBMP();
-	image.DeleteBMP();
+	delete[] image;
 
-	if (success == 1) return 1;
-
+	if (result) return 1;
 	return 0;
   }
 
