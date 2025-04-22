@@ -1,35 +1,33 @@
-#include "ImageSearch.h"
+#include "ImageSearch.hpp"
+#include "performance_tests.h"
+#include <iostream>
 
-int main() {
-	string imagePath;
-	int x = 0, y = 0;
-	int left, top, right, bottom, tolerance, ignore;
+int main(int argc, char* argv[]) {
+    try {
+        if (argc > 1 && std::string(argv[1]) == "--perf-test") {
+            int testResult = RunPerformanceTests();
+            std::cout << "Performance tests completed with status: " << testResult << std::endl;
+            return testResult;
+        }
 
-	cout << "Insert image path: ";
-	cin >> imagePath;
-	cout << "Insert left: ";
-	cin >> left;
-	cout << "Insert top: ";
-	cin >> top;
-	cout << "Insert right: ";
-	cin >> right;
-	if (right == 0) {
-		right = GetSystemMetrics(SM_CXSCREEN);
-	}
-	cout << "Insert bottom: ";
-	cin >> bottom;
-	if (bottom == 0) {
-		bottom = GetSystemMetrics(SM_CYSCREEN);
-	}
-	cout << "Insert tolerance: ";
-	cin >> tolerance;
-	cout << "Insert hex color code to ignore: ";
-	cin >> hex >> ignore;
-
-	int success = ImageSearch(x, y, left, top, right, bottom, imagePath, tolerance, ignore);
-
-	cout << success << " " << x << " " << y << endl;
-	Sleep(10000);
-
-	return 0;
+        int x = 0, y = 0;
+        int result = ImageSearch::Search(x, y, 0, 0, 1920, 1080, "test.png");
+        
+        if (result == 1) {
+            std::cout << "Image found at: " << x << "," << y << std::endl;
+        } else if (result == 0) {
+            std::cout << "Image not found" << std::endl;
+        } else {
+            std::cout << "Error occurred" << std::endl;
+            return 1;
+        }
+        
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal error: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "Unknown fatal error" << std::endl;
+        return 1;
+    }
 }

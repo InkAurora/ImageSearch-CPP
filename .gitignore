@@ -338,3 +338,8 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+test_image_large.png
+.gitignore
+test_image_small.png
+test_image_medium.png
+generate_test_images.exe
