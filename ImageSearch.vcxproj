@@ -149,12 +149,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="ImageSearch.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="generate_test_images.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="performance_tests.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ImageSearch.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

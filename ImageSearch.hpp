@@ -311,10 +311,13 @@ namespace ImageSearch {
                             const int offsetX = j - searchStartX;
                             const int offsetY = i - searchStartY;
                             
-                            #pragma omp critical
-                            {
-                                if (foundPosition == -1 && CompareImage(bmp, bmpImage, offsetX, offsetY)) {
-                                    foundPosition = offsetX + offsetY * screenWidth;
+                            bool fullMatch = (foundPosition == -1) && CompareImage(bmp, bmpImage, offsetX, offsetY);
+                            if (fullMatch) {
+                                #pragma omp critical
+                                {
+                                    if (foundPosition == -1) {
+                                        foundPosition = offsetX + offsetY * screenWidth;
+                                    }
                                 }
                             }
                         }

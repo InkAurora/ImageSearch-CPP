@@ -4,10 +4,18 @@
 
 int main(int argc, char* argv[]) {
     try {
-        if (argc > 1 && std::string(argv[1]) == "--perf-test") {
-            int testResult = RunPerformanceTests();
-            std::cout << "Performance tests completed with status: " << testResult << std::endl;
-            return testResult;
+        if (argc > 1) {
+            std::string arg(argv[1]);
+            if (arg == "--generate-images") {
+                int genResult = GenerateTestImages();
+                std::cout << "Test image generation completed with status: " << genResult << std::endl;
+                return genResult;
+            }
+            if (arg == "--perf-test") {
+                int testResult = RunPerformanceTests();
+                std::cout << "Performance tests completed with status: " << testResult << std::endl;
+                return testResult;
+            }
         }
 
         int x = 0, y = 0;
